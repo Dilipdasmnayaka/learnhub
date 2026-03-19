@@ -1,0 +1,21 @@
+packages:
+  "framer-motion": "For smooth page transitions, modal animations, and interactive hover states"
+  "canvas-confetti": "For the celebration animation after a successful course payment"
+  "@types/canvas-confetti": "Type definitions for canvas-confetti"
+  "date-fns": "For formatting enrollment dates and timestamps professionally"
+  "clsx": "For conditional class name joining"
+  "tailwind-merge": "For merging tailwind classes safely"
+  "lucide-react": "For beautiful, consistent SVG icons across the UI"
+
+images:
+  - path: "artifacts/course-enrollment/public/images/hero-bg.png"
+    description: "A stunning, premium abstract background with flowing gradients of vibrant blue, deep indigo, and soft cyan. Smooth, modern, professional, high-end corporate aesthetic, glassmorphism elements."
+    aspect_ratio: "16:9"
+  - path: "artifacts/course-enrollment/public/images/logo.png"
+    description: "A sleek, minimal geometric logo mark for an online learning platform. Featuring an abstract glowing blue book or graduation cap mixed with a play button. Transparent background."
+    aspect_ratio: "1:1"
+
+notes:
+  - Using framer-motion for all complex UI state transitions (modals, tabs, pages)
+  - Auth token is stored in localStorage and attached as a Bearer token via a custom hook wrapper
+  - Built a custom, lightweight but highly polished UI kit (buttons, inputs, modals, tabs, toasts) to reduce file count and ensure cohesive design
