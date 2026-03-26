@@ -116,7 +116,7 @@ export default function PaymentModal({ isOpen, onClose, courseId, courseTitle, p
               <Input label="Expiry Date" placeholder="MM/YY" required />
               <Input label="CVV" placeholder="123" type="password" maxLength={3} required />
             </div>
-            <Input label="Cardholder Name" placeholder="John Doe" required />
+            <Input label="Cardholder Name" placeholder="Your Name" required />
           </div>
         )}
 

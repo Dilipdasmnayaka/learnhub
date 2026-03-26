@@ -1,6 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useGetCurrentUser } from '@workspace/api-client-react';
-import type { User } from '@workspace/api-client-react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { useGetCurrentUser } from "@workspace/api-client-react";
+import type { User } from "@workspace/api-client-react";
 
 interface AuthContextType {
   user: User | null;
@@ -13,19 +19,25 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [token, setToken] = useState<string | null>(
+    localStorage.getItem("token"),
+  );
   const [user, setUser] = useState<User | null>(null);
 
-  const { data: fetchedUser, isLoading: isFetchingUser, isError } = useGetCurrentUser({
-    request: { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+  const {
+    data: fetchedUser,
+    isLoading: isFetchingUser,
+    isError,
+  } = useGetCurrentUser({
+    request: { headers: token ? { Authorization: `Bearer ${token}` } : {} },
   });
 
   // If token changes, update localStorage
   useEffect(() => {
     if (token) {
-      localStorage.setItem('token', token);
+      localStorage.setItem("token", token);
     } else {
-      localStorage.removeItem('token');
+      localStorage.removeItem("token");
       setUser(null);
     }
   }, [token]);
@@ -55,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  const isLoading = (!!token && !user && isFetchingUser);
+  const isLoading = !!token && !user && isFetchingUser;
 
   return (
     <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
@@ -67,13 +79,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }
 
 // Helper for other hooks to get headers
-export function getAuthHeaders() {
-  const token = localStorage.getItem('token');
+export function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem("token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 }

@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { User } from "../models/User.js";
-import { generateToken, authenticate, AuthRequest } from "../middleware/auth.js";
+import {
+  generateToken,
+  authenticate,
+  AuthRequest,
+} from "../middleware/auth.js";
 import { sendRegistrationEmail } from "../lib/mailer.js";
 
 const router = Router();
@@ -26,13 +30,24 @@ router.post("/register", async (req, res) => {
     }
     const user = new User({ name, email, password, role: "student" });
     await user.save();
-    const token = generateToken({ id: user._id.toString(), role: user.role, email: user.email });
+    const token = generateToken({
+      id: user._id.toString(),
+      role: user.role,
+      email: user.email,
+    });
     sendRegistrationEmail(user.email, user.name).catch(() => {});
     res.status(201).json({
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt },
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+      },
     });
   } catch (err) {
+    console.error("Registration error:", err);
     res.status(500).json({ error: "Registration failed" });
   }
 });
@@ -46,10 +61,20 @@ router.post("/login", async (req, res) => {
     }
 
     if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-      const token = generateToken({ id: "admin", role: "admin", email: ADMIN_EMAIL });
+      const token = generateToken({
+        id: "admin",
+        role: "admin",
+        email: ADMIN_EMAIL,
+      });
       res.json({
         token,
-        user: { id: 0, name: "Administrator", email: ADMIN_EMAIL, role: "admin", createdAt: new Date() },
+        user: {
+          id: 0,
+          name: "Administrator",
+          email: ADMIN_EMAIL,
+          role: "admin",
+          createdAt: new Date(),
+        },
       });
       return;
     }
@@ -64,10 +89,20 @@ router.post("/login", async (req, res) => {
       res.status(401).json({ error: "Invalid email or password" });
       return;
     }
-    const token = generateToken({ id: user._id.toString(), role: user.role, email: user.email });
+    const token = generateToken({
+      id: user._id.toString(),
+      role: user.role,
+      email: user.email,
+    });
     res.json({
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt },
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+      },
     });
   } catch {
     res.status(500).json({ error: "Login failed" });
@@ -77,7 +112,13 @@ router.post("/login", async (req, res) => {
 router.get("/me", authenticate, async (req: AuthRequest, res) => {
   try {
     if (req.user?.role === "admin") {
-      res.json({ id: 0, name: "Administrator", email: ADMIN_EMAIL, role: "admin", createdAt: new Date() });
+      res.json({
+        id: 0,
+        name: "Administrator",
+        email: ADMIN_EMAIL,
+        role: "admin",
+        createdAt: new Date(),
+      });
       return;
     }
     const user = await User.findById(req.user?.id).select("-password");
@@ -85,7 +126,13 @@ router.get("/me", authenticate, async (req: AuthRequest, res) => {
       res.status(404).json({ error: "User not found" });
       return;
     }
-    res.json({ id: user._id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt });
+    res.json({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      createdAt: user.createdAt,
+    });
   } catch {
     res.status(500).json({ error: "Failed to get user" });
   }
