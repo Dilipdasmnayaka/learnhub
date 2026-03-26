@@ -1,32 +1,6 @@
-# Node modules
 node_modules/
-
-# Logs
-logs
-*.log
-
-# Env files
 .env
-.env.local
-.env.*.local
-
-# Build files
 dist/
 build/
-
-# Vite cache
 .vite/
-
-# OS files
 .DS_Store
-
-# IDE
-.vscode/
-.idea/
-
-# Coverage
-coverage/
-
-# Temp
-tmp/
-temp/
