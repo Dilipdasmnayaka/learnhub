@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import mongoose from "mongoose";
 import router from "./routes/index.js";
 import { logger } from "./lib/logger.js";
+import "dotenv/config";
 
 const app: Express = express();
 

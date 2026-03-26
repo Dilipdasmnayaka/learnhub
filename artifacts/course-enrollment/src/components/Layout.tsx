@@ -66,7 +66,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 text-sm font-medium text-foreground bg-muted/50 px-3 py-1.5 rounded-full">
                       <UserIcon className="w-4 h-4 text-primary" />
-                      {user.name.split(' ')[0]}
+                      {user?.name ? user.name.split(' ')[0] : 'Guest'}
                     </div>
                     <Button variant="outline" size="sm" onClick={handleLogout} className="rounded-full">
                       <LogOut className="w-4 h-4 mr-2" /> Logout
@@ -75,7 +75,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 ) : (
                   <>
                     <Button variant="ghost" onClick={() => setLocation('/auth')}>Log in</Button>
-                    <Button onClick={() => setLocation('/auth?mode=register')} className="rounded-full shadow-primary/20">
+                    <Button onClick={() => setLocation('/signup')} className="rounded-full shadow-primary/20">
                       Sign up free
                     </Button>
                   </>
@@ -120,7 +120,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 ) : (
                   <>
                     <Button variant="outline" className="w-full" onClick={() => { setLocation('/auth'); setMobileMenuOpen(false); }}>Log in</Button>
-                    <Button className="w-full" onClick={() => { setLocation('/auth?mode=register'); setMobileMenuOpen(false); }}>Sign up free</Button>
+                    <Button className="w-full" onClick={() => { setLocation('/signup'); setMobileMenuOpen(false); }}>Sign up free</Button>
                   </>
                 )}
               </div>
