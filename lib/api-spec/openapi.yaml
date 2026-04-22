@@ -571,7 +571,7 @@ components:
           type: integer
         paymentMethod:
           type: string
-          enum: [upi, credit_card, net_banking]
+          enum: [upi, credit_card, net_banking, qr_code]
         paymentDetails:
           type: object
           additionalProperties: true
@@ -589,12 +589,12 @@ components:
           type: string
         enrollment:
           $ref: "#/components/schemas/Enrollment"
+          nullable: true
         message:
           type: string
       required:
         - success
         - transactionId
-        - enrollment
         - message
 
     UpdateProfileRequest:

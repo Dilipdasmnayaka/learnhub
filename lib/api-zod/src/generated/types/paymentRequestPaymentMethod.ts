@@ -13,4 +13,5 @@ export const PaymentRequestPaymentMethod = {
   upi: "upi",
   credit_card: "credit_card",
   net_banking: "net_banking",
+  qr_code: "qr_code",
 } as const;

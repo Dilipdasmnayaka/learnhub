@@ -10,6 +10,7 @@ interface CourseCardProps {
 }
 
 export default function CourseCard({ course, isEnrolled = false }: CourseCardProps) {
+  if (!course) return null;
   // Use a stunning fallback image if none provided
   const fallbackImage = `https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&h=400&fit=crop&q=80`;
 

@@ -3,7 +3,7 @@ import mongoose, { Document, Schema } from "mongoose";
 export interface IEnrollment extends Document {
   userId: mongoose.Types.ObjectId;
   courseId: mongoose.Types.ObjectId;
-  paymentMethod: "upi" | "credit_card" | "net_banking";
+  paymentMethod: "upi" | "credit_card" | "net_banking" | "qr_code";
   paymentStatus: "pending" | "completed" | "failed";
   amountPaid: number;
   transactionId: string;
@@ -16,7 +16,7 @@ const enrollmentSchema = new Schema<IEnrollment>(
     courseId: { type: Schema.Types.ObjectId, ref: "Course", required: true },
     paymentMethod: {
       type: String,
-      enum: ["upi", "credit_card", "net_banking"],
+      enum: ["upi", "credit_card", "net_banking", "qr_code"],
       required: true,
     },
     paymentStatus: {

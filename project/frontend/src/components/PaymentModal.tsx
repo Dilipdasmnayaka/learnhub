@@ -1,10 +1,17 @@
-import React, { useState } from 'react';
-import { Modal, Button, Input, useToast } from './ui';
-import { useProcessPayment } from '@workspace/api-client-react';
-import { getAuthHeaders } from '@/lib/auth';
-import confetti from 'canvas-confetti';
-import { CreditCard, Smartphone, Banknote, ShieldCheck } from 'lucide-react';
-import { useLocation } from 'wouter';
+import React, { useState, useEffect } from "react";
+import { Modal, Button, Input, useToast } from "./ui";
+import { useProcessPayment } from "@workspace/api-client-react";
+import { getAuthHeaders } from "@/lib/auth";
+import confetti from "canvas-confetti";
+import {
+  CreditCard,
+  Smartphone,
+  Banknote,
+  ShieldCheck,
+  QrCode,
+} from "lucide-react";
+import { useLocation } from "wouter";
+import { QRCodeSVG } from "qrcode.react";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -14,86 +21,233 @@ interface PaymentModalProps {
   price: number;
 }
 
-export default function PaymentModal({ isOpen, onClose, courseId, courseTitle, price }: PaymentModalProps) {
-  const [method, setMethod] = useState<'credit_card' | 'upi' | 'net_banking'>('credit_card');
-  const { mutate: pay, isPending } = useProcessPayment({ request: { headers: getAuthHeaders() } });
+export default function PaymentModal({
+  isOpen,
+  onClose,
+  courseId,
+  courseTitle,
+  price,
+}: PaymentModalProps) {
+  const [method, setMethod] = useState<
+    "credit_card" | "upi" | "net_banking" | "qr_code"
+  >("credit_card");
+  const { mutate: pay, isPending } = useProcessPayment({
+    request: { headers: getAuthHeaders() },
+  });
   const { success, error } = useToast();
   const [, setLocation] = useLocation();
 
   // Dummy form states
-  const [cardNumber, setCardNumber] = useState('');
-  const [upiId, setUpiId] = useState('');
+  const [cardNumber, setCardNumber] = useState("");
+  const [upiId, setUpiId] = useState("");
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+
+  // Poll enrollments after QR is generated so the page updates automatically when phone payment completes
+  useEffect(() => {
+    if (method !== "qr_code" || !qrCodeUrl) return;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    timer = setInterval(async () => {
+      try {
+        const res = await fetch("/api/enrollments", { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        const found = Array.isArray(data)
+          ? data.find(
+              (e: any) =>
+                String(e.courseId) === String(courseId) ||
+                String(e.course?.id) === String(courseId),
+            )
+          : null;
+        if (found && found.paymentStatus === "completed") {
+          success("Payment successful! You are now enrolled.");
+          if (timer) clearInterval(timer);
+          onClose();
+          setLocation("/dashboard");
+        }
+      } catch {
+        // ignore transient poll errors
+      }
+    }, 3000);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [method, qrCodeUrl, courseId, setLocation, onClose, success]);
 
   const handlePayment = (e: React.FormEvent) => {
     e.preventDefault();
-    
+    console.log("[PaymentModal] submit", {
+      method,
+      courseId,
+      price,
+      hasToken: !!getAuthHeaders().Authorization,
+    });
+
     // Basic validation
-    if (method === 'credit_card' && cardNumber.length < 12) {
+    if (method === "credit_card" && cardNumber.length < 12) {
       error("Please enter a valid dummy card number");
       return;
     }
-    if (method === 'upi' && !upiId.includes('@')) {
+    if (method === "upi" && !upiId.includes("@")) {
       error("Please enter a valid dummy UPI ID");
       return;
     }
 
-    pay({
-      data: {
-        courseId,
-        paymentMethod: method,
-        paymentDetails: method === 'credit_card' ? { card: cardNumber } : { upi: upiId }
-      }
-    }, {
-      onSuccess: () => {
-        // Fire confetti!
-        const duration = 3000;
-        const animationEnd = Date.now() + duration;
-        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 100 };
-
-        const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
-
-        const interval: any = setInterval(function() {
-          const timeLeft = animationEnd - Date.now();
-          if (timeLeft <= 0) return clearInterval(interval);
-          const particleCount = 50 * (timeLeft / duration);
-          confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
-          confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
-        }, 250);
-
-        success("Payment successful! You are now enrolled.");
-        onClose();
-        setTimeout(() => setLocation('/dashboard'), 1500);
+    pay(
+      {
+        data: {
+          courseId,
+          paymentMethod: method,
+          paymentDetails:
+            method === "credit_card"
+              ? { card: cardNumber }
+              : method === "upi"
+                ? { upi: upiId }
+                : {},
+        },
       },
-      onError: (err: any) => {
-        error(err.message || "Payment failed. Please try again.");
-      }
-    });
+      {
+        onSuccess: (response: any) => {
+          console.log("Payment response:", response); // Debug log
+          // For QR code payments, use backend URL; if missing, build a safe fallback
+          if (method === "qr_code") {
+            const apiPaymentUrl =
+              response?.paymentUrl ||
+              response?.data?.paymentUrl ||
+              null;
+            const apiQrDataUrl =
+              response?.qrCodeDataUrl ||
+              response?.data?.qrCodeDataUrl ||
+              null;
+
+            // Fallback builder: use public base if provided, else current origin
+            const baseEnv = import.meta.env.VITE_PUBLIC_BASE_URL as
+              | string
+              | undefined;
+            const baseUrl =
+              (baseEnv && baseEnv.replace(/\/$/, "")) ||
+              window.location.origin.replace(/\/$/, "");
+
+            const transactionId =
+              response?.transactionId || response?.data?.transactionId;
+
+            const fallbackUrl =
+              transactionId && courseId
+                ? `${baseUrl}/payment/${transactionId}?amount=${price}&courseId=${courseId}`
+                : null;
+
+            const chosenPaymentUrl = apiPaymentUrl || fallbackUrl || apiQrDataUrl;
+
+            if (!chosenPaymentUrl) {
+              console.warn(
+                "[PaymentModal] QR code URL missing; response:",
+                response,
+              );
+              error(
+                "QR code was not generated. Please try again or contact support.",
+              );
+              return;
+            }
+
+            setPaymentUrl(chosenPaymentUrl);
+            // Use payment URL as QR content; if we only had a data URL, this also works
+            setQrCodeUrl(chosenPaymentUrl);
+
+            console.log("[PaymentModal] QR payment URL:", chosenPaymentUrl);
+            success("QR code generated! Scan to pay.");
+            return;
+          }
+
+          // Fire confetti!
+          const duration = 3000;
+          const animationEnd = Date.now() + duration;
+          const defaults = {
+            startVelocity: 30,
+            spread: 360,
+            ticks: 60,
+            zIndex: 100,
+          };
+
+          const randomInRange = (min: number, max: number) =>
+            Math.random() * (max - min) + min;
+
+          const interval: any = setInterval(function () {
+            const timeLeft = animationEnd - Date.now();
+            if (timeLeft <= 0) return clearInterval(interval);
+            const particleCount = 50 * (timeLeft / duration);
+            confetti(
+              Object.assign({}, defaults, {
+                particleCount,
+                origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+              }),
+            );
+            confetti(
+              Object.assign({}, defaults, {
+                particleCount,
+                origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+              }),
+            );
+          }, 250);
+
+          success("Payment successful! You are now enrolled.");
+          onClose();
+          setTimeout(() => setLocation("/dashboard"), 1500);
+        },
+        onError: (err: any) => {
+          error(err.message || "Payment failed. Please try again.");
+        },
+      },
+    );
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Complete Enrollment" maxWidth="max-w-lg">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Complete Enrollment"
+      maxWidth="max-w-lg"
+    >
       <div className="mb-6 p-4 bg-muted/50 rounded-2xl flex justify-between items-center border border-border/50">
         <div>
           <p className="text-sm font-semibold text-foreground">{courseTitle}</p>
           <p className="text-xs text-muted-foreground mt-1">One-time payment</p>
         </div>
-        <div className="text-2xl font-display font-bold text-primary">₹{price}</div>
+        <div className="text-2xl font-display font-bold text-primary">
+          ₹{price}
+        </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-6">
+      <div className="grid grid-cols-2 gap-2 mb-6">
         {[
-          { id: 'credit_card', label: 'Card', icon: <CreditCard className="w-5 h-5 mb-1" /> },
-          { id: 'upi', label: 'UPI', icon: <Smartphone className="w-5 h-5 mb-1" /> },
-          { id: 'net_banking', label: 'Net Banking', icon: <Banknote className="w-5 h-5 mb-1" /> }
+          {
+            id: "credit_card",
+            label: "Card",
+            icon: <CreditCard className="w-5 h-5 mb-1" />,
+          },
+          {
+            id: "upi",
+            label: "UPI",
+            icon: <Smartphone className="w-5 h-5 mb-1" />,
+          },
+          {
+            id: "net_banking",
+            label: "Net Banking",
+            icon: <Banknote className="w-5 h-5 mb-1" />,
+          },
+          {
+            id: "qr_code",
+            label: "QR Code",
+            icon: <QrCode className="w-5 h-5 mb-1" />,
+          },
         ].map((m) => (
           <button
             key={m.id}
             type="button"
             onClick={() => setMethod(m.id as any)}
             className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${
-              method === m.id 
-                ? 'border-primary bg-primary/5 text-primary' 
-                : 'border-border bg-card hover:bg-muted text-muted-foreground'
+              method === m.id
+                ? "border-primary bg-primary/5 text-primary"
+                : "border-border bg-card hover:bg-muted text-muted-foreground"
             }`}
           >
             {m.icon}
@@ -103,39 +257,52 @@ export default function PaymentModal({ isOpen, onClose, courseId, courseTitle, p
       </div>
 
       <form onSubmit={handlePayment} className="space-y-4">
-        {method === 'credit_card' && (
+        {method === "credit_card" && (
           <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2">
-            <Input 
-              label="Card Number (Dummy)" 
-              placeholder="0000 0000 0000 0000" 
+            <p className="text-sm text-muted-foreground mb-4">
+              Enter card number, expiry, and CVV
+            </p>
+            <Input
+              label="Card Number (Dummy)"
+              placeholder="0000 0000 0000 0000"
               value={cardNumber}
-              onChange={e => setCardNumber(e.target.value)}
+              onChange={(e) => setCardNumber(e.target.value)}
               required
             />
             <div className="grid grid-cols-2 gap-4">
               <Input label="Expiry Date" placeholder="MM/YY" required />
-              <Input label="CVV" placeholder="123" type="password" maxLength={3} required />
+              <Input
+                label="CVV"
+                placeholder="123"
+                type="password"
+                maxLength={3}
+                required
+              />
             </div>
             <Input label="Cardholder Name" placeholder="Your Name" required />
           </div>
         )}
 
-        {method === 'upi' && (
+        {method === "upi" && (
           <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2">
-            <Input 
-              label="UPI ID (Dummy)" 
-              placeholder="username@okaxis" 
+            <p className="text-sm text-muted-foreground mb-4">
+              Enter your UPI ID (e.g. name@upi)
+            </p>
+            <Input
+              label="UPI ID (Dummy)"
+              placeholder="username@okaxis"
               value={upiId}
-              onChange={e => setUpiId(e.target.value)}
+              onChange={(e) => setUpiId(e.target.value)}
               required
             />
-            <p className="text-xs text-muted-foreground">You will receive a request on your UPI app.</p>
           </div>
         )}
 
-        {method === 'net_banking' && (
+        {method === "net_banking" && (
           <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2">
-            <p className="text-sm text-muted-foreground mb-4">You will be redirected to your bank's secure portal after clicking Pay.</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Select your bank
+            </p>
             <select className="w-full h-12 rounded-xl border-2 border-border bg-background px-4 py-2 text-sm focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10">
               <option>State Bank of India</option>
               <option>HDFC Bank</option>
@@ -145,13 +312,52 @@ export default function PaymentModal({ isOpen, onClose, courseId, courseTitle, p
           </div>
         )}
 
+        {method === "qr_code" && (
+          <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2">
+            <p className="text-sm text-muted-foreground mb-4">
+              Scan the QR code with your mobile phone to complete the payment
+              securely.
+            </p>
+            <div className="flex flex-col items-center space-y-4">
+              <div className="bg-white p-4 rounded-xl border-2 border-border">
+                {qrCodeUrl ? (
+                  <QRCodeSVG value={qrCodeUrl} size={180} />
+                ) : isPending ? (
+                  <div className="w-48 h-48 flex items-center justify-center text-muted-foreground">
+                    <QrCode className="w-16 h-16 animate-pulse" />
+                    <span className="ml-2">Generating QR...</span>
+                  </div>
+                ) : (
+                  <div className="w-48 h-48 flex flex-col items-center justify-center text-muted-foreground text-center px-4">
+                    <QrCode className="w-10 h-10 mb-2" />
+                    <span>Click “Generate QR” to create your code</span>
+                  </div>
+                )}
+              </div>
+             <p className="text-xs text-center text-muted-foreground max-w-xs">
+                📱 Scan with your phone → 🌐 Open payment page → 💰 Review
+                amount → Click "Pay" → ✅ Success
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="pt-4 mt-2 border-t border-border flex items-center justify-between">
           <div className="flex items-center text-xs font-medium text-muted-foreground">
             <ShieldCheck className="w-4 h-4 mr-1 text-success" />
             Secure Encrypted Payment
           </div>
-          <Button type="submit" isLoading={isPending} className="px-8 shadow-primary/30">
-            Pay ₹{price}
+          <Button
+            type="submit"
+            isLoading={isPending}
+            className="px-8 shadow-primary/30"
+            disabled={method === "qr_code" && qrCodeUrl !== null}
+          >
+            {method === "qr_code"
+              ? qrCodeUrl
+                ? "Scan to pay on mobile"
+                : "Generate QR"
+              : `Pay ₹${price}`}
           </Button>
         </div>
       </form>

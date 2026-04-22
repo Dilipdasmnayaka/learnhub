@@ -13,6 +13,7 @@ import Login from "@/pages/Login";
 import Signup from "@/pages/Signup";
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
+import PaymentPage from "@/pages/PaymentPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -55,6 +56,9 @@ function Router() {
   return (
     <Layout>
       <Switch>
+        {/* Standalone payment page (no auth wrapper) */}
+        <Route path="/payment/:transactionId" component={PaymentPage} />
+
         <Route path="/" component={Home} />
         <Route path="/courses" component={Courses} />
         <Route path="/courses/:id" component={CourseDetail} />
@@ -64,7 +68,9 @@ function Router() {
         <Route path="/dashboard">
           <ProtectedRoute component={Dashboard} />
         </Route>
-        <Route component={NotFound} />
+
+        {/* Catch-all */}
+        <Route path="/:rest*" component={NotFound} />
       </Switch>
     </Layout>
   );
@@ -75,7 +81,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ToastProvider />
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+        <WouterRouter base="/">
           <Router />
         </WouterRouter>
       </AuthProvider>

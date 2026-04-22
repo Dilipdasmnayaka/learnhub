@@ -37,7 +37,8 @@ router.post("/", async (req, res) => {
       msg.includes("₹") ||
       msg.includes("rupee")
     ) {
-      const courses = await Course.find().select("title price").limit(5);
+      // Show the newest courses first so recent additions appear in the reply
+      const courses = await Course.find().select("title price").sort({ createdAt: -1 }).limit(10);
       if (courses.length === 0) {
         reply =
           "All our courses are priced under ₹500! Check the Courses page to see current offerings.";
@@ -51,7 +52,8 @@ router.post("/", async (req, res) => {
       msg.includes("what courses") ||
       msg.includes("available")
     ) {
-      const courses = await Course.find().select("title description").limit(5);
+      // Show the newest courses first so recent additions appear in the reply
+      const courses = await Course.find().select("title description").sort({ createdAt: -1 }).limit(10);
       if (courses.length === 0) {
         reply =
           "We're adding courses soon! Check back shortly on the Courses page.";

@@ -78,6 +78,8 @@
   },
   "dependencies": {
     "@types/canvas-confetti": "^1.9.0",
-    "canvas-confetti": "^1.9.4"
+    "canvas-confetti": "^1.9.4",
+    "ngrok": "5.0.0-beta.2",
+    "qrcode.react": "^4.2.0"
   }
 }

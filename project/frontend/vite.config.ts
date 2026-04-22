@@ -66,7 +66,12 @@ export default defineConfig({
   server: {
     port,
     host: "0.0.0.0",
-    allowedHosts: true,
+    // Allow local and ngrok hosts for dev + mobile QR testing
+    allowedHosts: [
+      "localhost",
+      "127.0.0.1",
+      "genoveva-prostomial-florentina.ngrok-free.dev",
+    ],
     proxy: {
       "/api": "http://localhost:3001",
     },
@@ -78,6 +83,10 @@ export default defineConfig({
   preview: {
     port,
     host: "0.0.0.0",
-    allowedHosts: true,
+    allowedHosts: [
+      "localhost",
+      "127.0.0.1",
+      "genoveva-prostomial-florentina.ngrok-free.dev",
+    ],
   },
 });

@@ -10,6 +10,6 @@ import type { Enrollment } from "./enrollment";
 export interface PaymentResponse {
   success: boolean;
   transactionId: string;
-  enrollment: Enrollment;
+  enrollment?: Enrollment | null;
   message: string;
 }

@@ -23,6 +23,9 @@ async function getTransporter(): Promise<nodemailer.Transporter> {
       }
 
       // No credentials configured: create a throwaway Ethereal account.
+      console.warn(
+        "[mail] SMTP_USER/SMTP_PASS not set; using Ethereal test inbox. Emails will not reach real inboxes. See backend/.env.example to configure real SMTP.",
+      );
       const testAccount = await nodemailer.createTestAccount();
       return nodemailer.createTransport({
         host: "smtp.ethereal.email",
@@ -40,23 +43,30 @@ async function getTransporter(): Promise<nodemailer.Transporter> {
 }
 
 export async function sendRegistrationEmail(email: string, name: string): Promise<void> {
-  const transporter = await getTransporter();
-  const info = await transporter.sendMail({
-    from: '"SkillElevate" <noreply@skillelevate.com>',
-    to: email,
-    subject: "Welcome to SkillElevate!",
-    html: `
-      <h1>Welcome, ${name}!</h1>
-      <p>Thank you for registering at SkillElevate. Your account has been created successfully.</p>
-      <p>Start exploring our courses and enroll in one today!</p>
-      <p>Happy Learning!<br/>SkillElevate Team</p>
-    `,
-  });
+  try {
+    const transporter = await getTransporter();
+    const fromAddr =
+      process.env["SMTP_FROM"] ||
+      (process.env["SMTP_USER"] ? `"SkillElevate" <${process.env["SMTP_USER"]}>` : '"SkillElevate" <noreply@skillelevate.com>');
 
-  // Print preview URL when using Ethereal to help with local debugging.
-  if (!process.env["SMTP_USER"]) {
-    const preview = nodemailer.getTestMessageUrl(info);
-    if (preview) console.log(`Registration email preview: ${preview}`);
+    const info = await transporter.sendMail({
+      from: fromAddr,
+      to: email,
+      subject: "Welcome to SkillElevate!",
+      html: `
+        <h1>Welcome, ${name}!</h1>
+        <p>Thank you for registering at SkillElevate. Your account has been created successfully.</p>
+        <p>Start exploring our courses and enroll in one today!</p>
+        <p>Happy Learning!<br/>SkillElevate Team</p>
+      `,
+    });
+
+    if (!process.env["SMTP_USER"]) {
+      const preview = nodemailer.getTestMessageUrl(info);
+      if (preview) console.log(`Registration email preview: ${preview}`);
+    }
+  } catch (err) {
+    console.error("[mail] sendRegistrationEmail failed:", err);
   }
 }
 
@@ -65,22 +75,30 @@ export async function sendPaymentEmail(
   courseName: string,
   transactionId: string
 ): Promise<void> {
-  const transporter = await getTransporter();
-  const info = await transporter.sendMail({
-    from: '"SkillElevate" <noreply@skillelevate.com>',
-    to: email,
-    subject: "Payment Successful - Enrollment Confirmed! (SkillElevate)",
-    html: `
-      <h1>Payment Successful!</h1>
-      <p>Your payment has been received and you are now enrolled in <strong>${courseName}</strong>.</p>
-      <p><strong>Transaction ID:</strong> ${transactionId}</p>
-      <p>Visit your dashboard to start learning!</p>
-      <p>Happy Learning!<br/>SkillElevate Team</p>
-    `,
-  });
+  try {
+    const transporter = await getTransporter();
+    const fromAddr =
+      process.env["SMTP_FROM"] ||
+      (process.env["SMTP_USER"] ? `"SkillElevate" <${process.env["SMTP_USER"]}>` : '"SkillElevate" <noreply@skillelevate.com>');
 
-  if (!process.env["SMTP_USER"]) {
-    const preview = nodemailer.getTestMessageUrl(info);
-    if (preview) console.log(`Payment email preview: ${preview}`);
+    const info = await transporter.sendMail({
+      from: fromAddr,
+      to: email,
+      subject: "Payment Successful - Enrollment Confirmed! (SkillElevate)",
+      html: `
+        <h1>Payment Successful!</h1>
+        <p>Your payment has been received and you are now enrolled in <strong>${courseName}</strong>.</p>
+        <p><strong>Transaction ID:</strong> ${transactionId}</p>
+        <p>Visit your dashboard to start learning!</p>
+        <p>Happy Learning!<br/>SkillElevate Team</p>
+      `,
+    });
+
+    if (!process.env["SMTP_USER"]) {
+      const preview = nodemailer.getTestMessageUrl(info);
+      if (preview) console.log(`Payment email preview: ${preview}`);
+    }
+  } catch (err) {
+    console.error("[mail] sendPaymentEmail failed:", err);
   }
 }

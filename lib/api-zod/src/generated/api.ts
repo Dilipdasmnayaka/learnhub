@@ -165,7 +165,7 @@ export const GetMyEnrollmentsResponse = zod.array(GetMyEnrollmentsResponseItem);
  */
 export const ProcessPaymentBody = zod.object({
   courseId: zod.number(),
-  paymentMethod: zod.enum(["upi", "credit_card", "net_banking"]),
+  paymentMethod: zod.enum(["upi", "credit_card", "net_banking", "qr_code"]),
   paymentDetails: zod.record(zod.string(), zod.unknown()),
 });
 

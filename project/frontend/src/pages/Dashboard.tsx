@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth, getAuthHeaders } from '@/lib/auth';
 import { useLocation } from 'wouter';
 import { useGetMyEnrollments, useGetCourses, useCreateCourse, useUpdateCourse, useDeleteCourse, useUpdateProfile } from '@workspace/api-client-react';
@@ -94,10 +94,12 @@ function StudentView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
-                {enrollments?.map(e => (
+                {enrollments?.map(e => {
+                  const courseTitle = e.course?.title ?? "Course";
+                  return (
                   <tr key={e.id} className="hover:bg-muted/20 transition-colors">
                     <td className="px-6 py-4 font-mono text-xs">{e.transactionId}</td>
-                    <td className="px-6 py-4 font-medium">{e.course.title}</td>
+                    <td className="px-6 py-4 font-medium">{courseTitle}</td>
                     <td className="px-6 py-4 text-muted-foreground">{format(new Date(e.enrolledAt), 'MMM d, yyyy')}</td>
                     <td className="px-6 py-4 uppercase text-xs font-bold tracking-wider text-muted-foreground">{e.paymentMethod.replace('_', ' ')}</td>
                     <td className="px-6 py-4 text-right font-semibold">₹{e.amountPaid}</td>
@@ -107,7 +109,8 @@ function StudentView() {
                       </span>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {!enrollments?.length && (
                   <tr><td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">No payment history found.</td></tr>
                 )}
@@ -128,6 +131,19 @@ function AdminView() {
   const { data: courses, isLoading, refetch } = useGetCourses();
   const { mutate: deleteCourse } = useDeleteCourse({ request: { headers: getAuthHeaders() } });
   const { success, error } = useToast();
+
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loadingNotes, setLoadingNotes] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'notifications') return;
+    setLoadingNotes(true);
+    fetch('/api/admin/notifications', { headers: getAuthHeaders() })
+      .then((res) => res.json())
+      .then((data) => setNotifications(Array.isArray(data) ? data : []))
+      .catch(() => setNotifications([]))
+      .finally(() => setLoadingNotes(false));
+  }, [activeTab]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<any>(null);
@@ -156,15 +172,16 @@ function AdminView() {
   return (
     <div className="space-y-8 animate-in fade-in">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <Tabs 
-          activeTab={activeTab} 
+        <Tabs
+          activeTab={activeTab}
           onChange={setActiveTab}
           tabs={[
-            { id: 'manage', label: 'Manage Courses' },
-            { id: 'profile', label: 'Profile Settings' }
-          ]} 
+            { id: "manage", label: "Manage Courses" },
+            { id: "notifications", label: "Notifications" },
+            { id: "profile", label: "Profile Settings" },
+          ]}
         />
-        {activeTab === 'manage' && (
+        {activeTab === "manage" && (
           <Button onClick={openCreate} className="shadow-primary/20">
             <Plus className="w-5 h-5 mr-2" /> Add New Course
           </Button>
@@ -210,6 +227,75 @@ function AdminView() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </Card>
+      )}
+
+      {activeTab === "notifications" && (
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b border-border/50 flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Admin Notifications</h3>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setLoadingNotes(true);
+                  fetch("/api/admin/notifications", {
+                    method: "DELETE",
+                    headers: getAuthHeaders(),
+                  })
+                    .then(() => fetch("/api/admin/notifications", { headers: getAuthHeaders() }))
+                    .then((res) => res.json())
+                    .then((data) => setNotifications(Array.isArray(data) ? data : []))
+                    .finally(() => setLoadingNotes(false));
+                }}
+              >
+                Clear all
+              </Button>
+              {loadingNotes && <Spinner />}
+            </div>
+          </div>
+          <div className="divide-y divide-border/50">
+            {notifications.length === 0 && !loadingNotes && (
+              <div className="p-6 text-center text-muted-foreground">
+                No notifications yet.
+              </div>
+            )}
+            {notifications.map((n) => (
+              <div key={n._id} className="p-4 flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm text-muted-foreground mb-1">
+                    {n.name || n.email || "Unknown user"} •{" "}
+                    {format(new Date(n.createdAt), "MMM d, yyyy h:mm a")}
+                  </div>
+                  <div className="text-base text-foreground whitespace-pre-wrap">
+                    {n.message.replace(/^\[[^\]]+\]\s*/,"")}
+                  </div>
+                </div>
+                <button
+                  className="w-10 h-10 flex items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-600 shadow-sm hover:bg-rose-100 hover:border-rose-300 active:scale-95 transition"
+                  aria-label="Delete notification"
+                  onClick={() => {
+                    setLoadingNotes(true);
+                    fetch(`/api/admin/notifications/${n._id}`, {
+                      method: "DELETE",
+                      headers: getAuthHeaders(),
+                    })
+                      .then(() =>
+                        fetch("/api/admin/notifications", {
+                          headers: getAuthHeaders(),
+                        }),
+                      )
+                      .then((res) => res.json())
+                      .then((data) => setNotifications(Array.isArray(data) ? data : []))
+                      .finally(() => setLoadingNotes(false));
+                  }}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
           </div>
         </Card>
       )}
